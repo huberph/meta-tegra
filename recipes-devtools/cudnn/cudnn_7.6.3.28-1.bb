@@ -52,7 +52,6 @@ do_install() {
     echo "sym, ${libdir}/libcudnn.so" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/cudnn.csv
 }
 
-PACKAGES =+ "${PN}-samples"
 FILES_${PN}-samples = "${prefix}/src"
 INSANE_SKIP_${PN} = "ldflags"
 FILES_${PN} += "${sysconfdir}/nvidia-container-runtime/host-files-for-container.d"
