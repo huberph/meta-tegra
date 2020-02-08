@@ -15,7 +15,6 @@ DEPENDS = " \
     libcap \
     elfutils \
     libtirpc \
-    libseccomp \
     ldconfig-native \
 "
 LICENSE = "GPLv3 & Proprietary"
@@ -51,9 +50,12 @@ SRCREV_modprobe = "d97c08af5061f1516fb2e3a26508936f69d6d71d"
 
 S = "${WORKDIR}/git"
 
+PACKAGECONFIG ??= ""
+PACKAGECONFIG[seccomp] = " WITH_SECCOMP=yes , WITH_SECCOMP=no ,libseccomp"
+
 # We need to link with libelf, otherwise we need to
 # include bmake-native which does not exist at the moment.
-EXTRA_OEMAKE_append = " WITH_LIBELF=yes JETSON=TRUE"
+EXTRA_OEMAKE_append = " WITH_LIBELF=yes JETSON=TRUE ${PACKAGECONFIG_CONFARGS}"
 
 CFLAGS_prepend = " -I ${WORKDIR}/recipe-sysroot/usr/include/tirpc "
 
