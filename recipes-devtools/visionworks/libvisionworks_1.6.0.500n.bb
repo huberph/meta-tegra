@@ -2,7 +2,7 @@ DESCRIPTION = "NVIDIA VisionWorks Toolkit is a CUDA accelerated software develop
 LICENSE = "Proprietary"
 LIC_FILES_CHKSUM = "file://usr/share/doc/libvisionworks-repo/copyright;md5=55bbad78645f10682903c530636cf1a9"
 
-inherit nvidia_devnet_downloads
+inherit nvidia_devnet_downloads container-runtime-csv
 
 SRC_URI = "${NVIDIA_DEVNET_MIRROR}/libvisionworks-repo_${PV}_arm64.deb"
 
@@ -10,6 +10,8 @@ SRC_URI[md5sum] = "e70d49ff115bc5782a3d07b572b5e3c0"
 SRC_URI[sha256sum] = "fb46f48965e78e031ba8e987ba0421c03dd5e2428572e5681f1e31c74aabff22"
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
+
+CONTAINER_CSV_DIRS = "${libdir}"
 
 CUDAPATH ?= "/usr/local/cuda-${CUDA_VERSION}"
 
@@ -29,18 +31,13 @@ do_install() {
     cp -R --preserve=mode,timestamps ${B}/usr/lib/pkgconfig/* ${D}${libdir}/pkgconfig
     cp --preserve=mode,timestamps ${B}/usr/lib/libvisionworks.so ${D}${libdir}/
     cp -R --preserve=mode,timestamps ${B}/usr/share/visionworks ${D}${datadir}/
-    # CSV file for nvidia-docker
-    install -d -m 755 ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d
-    echo "lib, ${libdir}/libvisionworks.so" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks.csv
 }
 
 INHIBIT_PACKAGE_STRIP = "1"
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 INHIBIT_SYSROOT_STRIP = "1"
 
-FILES_${PN} = "${libdir}/libvisionworks.so \
-               ${sysconfdir}/nvidia-container-runtime/host-files-for-container.d \
-"
+FILES_${PN} = "${libdir}/libvisionworks.so"
 FILES_${PN}-dev = "${includedir} ${libdir}/pkgconfig ${datadir}/visionworks"
 
 RDEPENDS_${PN} = "libstdc++"

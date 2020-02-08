@@ -2,7 +2,7 @@ SUMMARY = "NVIDIA VisionWorks target tools"
 LICENSE = "Proprietary"
 LIC_FILES_CHKSUM = "file://usr/share/doc/libvisionworks-tracking-repo/copyright;md5=99d8c0c1313afdf990f6407c07a88407"
 
-inherit nvidia_devnet_downloads
+inherit nvidia_devnet_downloads container-runtime-csv
 
 SRC_URI = "${NVIDIA_DEVNET_MIRROR}/libvisionworks-tracking-repo_${PV}_arm64.deb"
 SRC_URI[md5sum] = "7630f0309c883cc6d8a1ab5a712938a5"
@@ -10,6 +10,8 @@ SRC_URI[sha256sum] = "b1f529cf3e44be81f19544a148cbe80ba8ae91b57b0837bd7c84d4f6b1
 
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
+
+CONTAINER_CSV_DIRS = "${libdir}"
 
 CUDAPATH ?= "/usr/local/cuda-${CUDA_VERSION}"
 
@@ -28,11 +30,6 @@ do_install() {
     cp -R --preserve=mode,timestamps ${B}/usr/include ${D}${prefix}/
     cp -R --preserve=mode,timestamps ${B}/usr/lib/* ${D}${libdir}/
     cp -R --preserve=mode,timestamps ${B}/usr/share/visionworks-tracking ${D}${datadir}/
-    # CSV file for nvidia-docker
-    install -d -m 755 ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d
-    echo "lib, ${libdir}/libvisionworks_tracking.so.${PV}" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-tracking.csv
-    echo "sym, ${libdir}/libvisionworks_tracking.so.0.88" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-tracking.csv
-    echo "sym, ${libdir}/libvisionworks_tracking.so}" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-tracking.csv
 }
 
 INHIBIT_PACKAGE_STRIP = "1"
@@ -43,6 +40,5 @@ PACKAGES += "${PN}-samples"
 FILES_${PN}-dev += "${libdir}/pkgconfig ${datadir}/visionworks-tracking/cmake"
 FILES_${PN}-doc += "${datadir}/visionworks-tracking/docs"
 FILES_${PN}-samples += "${datadir}/visionworks-tracking/sources"
-FILES_${PN} += "${sysconfdir}/nvidia-container-runtime/host-files-for-container.d"
 RDEPENDS_${PN} = "libstdc++"
 PACKAGE_ARCH = "${SOC_FAMILY_PKGARCH}"

@@ -4,7 +4,7 @@ DESCRIPTION = "NVIDIA VisionWorks Plus (SFM) contains platform specific optimize
 LICENSE = "Proprietary"
 LIC_FILES_CHKSUM = "file://usr/share/doc/libvisionworks-sfm-repo/copyright;md5=99d8c0c1313afdf990f6407c07a88407"
 
-inherit nvidia_devnet_downloads
+inherit nvidia_devnet_downloads container-runtime-csv
 
 SRC_URI = "${NVIDIA_DEVNET_MIRROR}/libvisionworks-sfm-repo_${PV}_arm64.deb"
 SRC_URI[md5sum] = "647b0ae86a00745fc6d211545a9fcefe"
@@ -12,6 +12,8 @@ SRC_URI[sha256sum] = "b98bab05e6bc8d75cffbec477437bdfbb640e59503ff0e15c82a714ee4
 
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
+
+CONTAINER_CSV_DIRS = "${libdir}"
 
 CUDAPATH ?= "/usr/local/cuda-${CUDA_VERSION}"
 
@@ -30,11 +32,6 @@ do_install() {
     cp -R --preserve=mode,timestamps ${B}/usr/include ${D}${prefix}/
     cp -R --preserve=mode,timestamps ${B}/usr/lib/* ${D}${libdir}/
     cp -R --preserve=mode,timestamps ${B}/usr/share/visionworks-sfm ${D}${datadir}/
-    # CSV file for nvidia-docker
-    install -d -m 755 ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d
-    echo "lib, ${libdir}/libvisionworks_sfm.so.${PV}" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-sfm.csv
-    echo "sym, ${libdir}/libvisionworks_sfm.so.0.90" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-sfm.csv
-    echo "sym, ${libdir}/libvisionworks_sfm.so}" >> ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/visionworks-sfm.csv
 }
 
 INHIBIT_PACKAGE_STRIP = "1"
@@ -45,6 +42,5 @@ PACKAGES += "${PN}-samples"
 FILES_${PN}-dev += "${libdir}/pkgconfig ${datadir}/visionworks-sfm/cmake"
 FILES_${PN}-doc += "${datadir}/visionworks-sfm/docs"
 FILES_${PN}-samples += "${datadir}/visionworks-sfm/sources"
-FILES_${PN} += "${sysconfdir}/nvidia-container-runtime/host-files-for-container.d"
 RDEPENDS_${PN} = "libstdc++"
 PACKAGE_ARCH = "${SOC_FAMILY_PKGARCH}"
