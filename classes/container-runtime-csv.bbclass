@@ -35,3 +35,4 @@ do_install[postfuncs] += "populate_container_csv"
 
 PACKAGES =+ "${CONTAINER_CSV_PKGNAME}"
 FILES_${CONTAINER_CSV_PKGNAME} = "${sysconfdir}/nvidia-container-runtime"
+RDEPENDS_${PN} += "${@bb.utils.contains('DISTRO_FEATURES', 'virtualization', '${CONTAINER_CSV_PKGNAME}', '', d)}"
