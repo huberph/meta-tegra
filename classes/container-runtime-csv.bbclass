@@ -1,38 +1,54 @@
-CONTAINER_CSV_DIRS ??= ""
+CONTAINER_CSV_FILES ??= "${libdir}/*.so*"
 CONTAINER_CSV_BASENAME ??= "${PN}"
 CONTAINER_CSV_PKGNAME ?= "${CONTAINER_CSV_BASENAME}-container-csv"
+CONTAINER_CSV_EXTRA ??= ""
 
-stage_container_csv_dirs() {    
-    outfile=${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d/${PN}.csv
-    install -d ${D}${sysconfdir}/nvidia-container-runtime/host-files-for-container.d
-    rm -f ${outfile}.tmp
-    touch ${outfile}.tmp
-    for d in $@; do
-	for f in $(cd ${D}$d; ls -1); do
-	    # Skip static libraries
-	    sfx=`echo $f | cut -c $(expr ${#f} - 1)-`
-	    [ "${sfx}" != ".a" ] || continue
-	    if [ -d ${D}$d/$f ]; then
-	        echo "dir, $d/$f" >> ${outfile}.tmp
-	    elif [ -L ${D}$d/$f ]; then
-	        echo "sym, $d/$f" >> ${outfile}.tmp
-	    elif [ -f ${D}$d/$f ]; then
-	        echo "lib, $d/$f" >> ${outfile}.tmp
-	    else
-		bbwarn "Unrecognized file type for container CSV: $d/$f"
-	    fi
-	done
-    done
-    sort -u ${outfile}.tmp > ${outfile}
-    chmod 0644 ${outfile}
-    rm ${outfile}.tmp
+python populate_container_csv() {
+    import os
+    import glob
+    globs = (d.getVar('CONTAINER_CSV_FILES') or '').split()
+    if len(globs) == 0:
+        return
+    root = d.getVar('D')
+    entries = set()
+    oldcwd = os.getcwd()
+    os.chdir(root)
+    for csvglob in globs:
+        if os.path.isabs(csvglob):
+            csvglob = '.' + csvglob
+        if not csvglob.startswith('./'):
+            csvglob = './' + csvglob
+        globbed = glob.glob(csvglob)
+        if globbed and globbed != [ csvglob ]:
+            entries.update([entry[2:] for entry in globbed])
+        else:
+            entries.update([csvglob[2:]])
+    csvlines = (d.getVar('CONTAINER_CSV_EXTRA') or '').split('\n')
+    for entry in entries:
+        if os.path.isdir(entry):
+            csvtype = "dir"
+        elif os.path.islink(entry):
+            csvtype = "sym"
+        elif os.path.isfile(entry):
+            csvtype = "lib"
+        else:
+            bb.warn("Unrecognized file type for container CSV: {}".format(entry))
+            continue
+        csvlines.append("{}, /{}".format(csvtype, entry))
+
+    os.chdir(oldcwd)
+    csvfiledir = os.path.join(root, d.getVar('sysconfdir')[1:], 'nvidia-container-runtime',
+                              'host-files-for-container.d')
+    bb.utils.remove(csvfiledir, recurse=True)
+    bb.utils.mkdirhier(csvfiledir)
+    csvfile = os.path.join(csvfiledir, d.getVar('PN') + '.csv')
+    with open(csvfile, 'w', encoding='utf-8') as outf:
+        outf.write('\n'.join(sorted(csvlines)) + '\n')
+    os.chmod(csvfile, 0o644)
 }
 
-populate_container_csv() {
-    [ -z "${CONTAINER_CSV_DIRS}" ] || stage_container_csv_dirs ${CONTAINER_CSV_DIRS}
-}
 do_install[postfuncs] += "populate_container_csv"
 
-PACKAGES =+ "${CONTAINER_CSV_PKGNAME}"
+PACKAGES_prepend = " ${CONTAINER_CSV_PKGNAME} "
 FILES_${CONTAINER_CSV_PKGNAME} = "${sysconfdir}/nvidia-container-runtime"
-RDEPENDS_${PN} += "${@bb.utils.contains('DISTRO_FEATURES', 'virtualization', '${CONTAINER_CSV_PKGNAME}', '', d)}"
+RDEPENDS_${PN}_append = " ${@bb.utils.contains('DISTRO_FEATURES', 'virtualization', '${CONTAINER_CSV_PKGNAME}', '', d)}"
