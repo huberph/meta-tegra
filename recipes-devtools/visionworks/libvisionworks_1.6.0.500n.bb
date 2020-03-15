@@ -11,8 +11,6 @@ SRC_URI[sha256sum] = "fb46f48965e78e031ba8e987ba0421c03dd5e2428572e5681f1e31c74a
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
 
-CONTAINER_CSV_DIRS = "${libdir}"
-
 CUDAPATH ?= "/usr/local/cuda-${CUDA_VERSION}"
 
 DEPENDS = "dpkg-native cuda-cudart patchelf-native"
