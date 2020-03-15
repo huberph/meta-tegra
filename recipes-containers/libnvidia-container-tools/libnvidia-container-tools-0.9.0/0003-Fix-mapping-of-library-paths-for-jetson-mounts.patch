@@ -1,20 +1,39 @@
-From ef0c9ee29a85b5199bebb4bf097b2d3621780df7 Mon Sep 17 00:00:00 2001
+From b4bdf9bbc9018c79f7914f3854ddd6517ac55bf9 Mon Sep 17 00:00:00 2001
 From: Matt Madison <matt@madison.systems>
 Date: Sat, 14 Mar 2020 07:16:38 -0700
 Subject: [PATCH] Fix mapping of library paths for jetson mounts
 
 ---
- src/jetson_mount.c | 46 +++++++++++++++++++++++++++++++++++-----------
+ Makefile           |  2 +-
+ src/jetson_mount.c | 68 ++++++++++++++++++++++++++++++++++++++--------
  src/jetson_mount.h |  2 +-
- src/nvc_mount.c    |  6 +++---
- 3 files changed, 39 insertions(+), 15 deletions(-)
+ src/nvc_mount.c    |  6 ++--
+ 4 files changed, 62 insertions(+), 16 deletions(-)
 
+diff --git a/Makefile b/Makefile
+index d5187b8..afca0e8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -113,7 +113,7 @@ LIB_PKGCFG  := $(LIB_NAME).pc
+ ##### Flags definitions #####
+ 
+ # Common flags
+-CPPFLAGS := -D_GNU_SOURCE -D_FORTIFY_SOURCE=2 -g3 -D JETSON=$(JETSON) $(CPPFLAGS)
++CPPFLAGS := -D_GNU_SOURCE -D_FORTIFY_SOURCE=2 -g3 -D JETSON=$(JETSON) -DHOST_LIBDIR=$(libdir) $(CPPFLAGS)
+ CFLAGS   := -std=gnu11 -O0 -g3 -fdata-sections -ffunction-sections -fstack-protector -fno-strict-aliasing -fvisibility=hidden \
+             -Wall -Wextra -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wnonnull \
+             -Wwrite-strings -Wlogical-op -Wformat=2 -Wmissing-format-attribute -Winit-self -Wshadow \
 diff --git a/src/jetson_mount.c b/src/jetson_mount.c
-index dff9c97..eaf3289 100644
+index dff9c97..2530d14 100644
 --- a/src/jetson_mount.c
 +++ b/src/jetson_mount.c
-@@ -20,12 +20,13 @@
+@@ -18,28 +18,65 @@
+ #include "utils.h"
+ #include "xfuncs.h"
  #include "jetson_mount.h"
++#define stringify(s__) stringify__(s__)
++#define stringify__(s__) #s__
++static const char *hostlibdir = stringify(HOST_LIBDIR) "/";
  
  char **
 -mount_jetson_files(struct error *err, const char *root, const struct nvc_container *cnt, char *paths[], size_t size)
@@ -28,17 +47,36 @@ index dff9c97..eaf3289 100644
  
          mnt = ptr = array_new(err, size + 1); /* NULL terminated. */
          if (mnt == NULL)
-@@ -34,12 +35,26 @@ mount_jetson_files(struct error *err, const char *root, const struct nvc_contain
+                 return (NULL);
+ 
          for (size_t i = 0; i < size; ++i) {
++                int samepath = 0;
                  if (path_new(err, src, root) < 0)
                          goto fail;
 -                if (path_new(err, dst, cnt->cfg.rootfs) < 0)
 -                        goto fail;
 -
 +                if (dir != NULL) {
-+                        if (strstr(paths[i], "/gstreamer-1.0") != NULL) {
-+                                char tmp[PATH_MAX];
-+                                if (path_join(err, tmp, dir, "/gstreamer-1.0") < 0)
++                        size_t hostlibdirlen = strlen(hostlibdir);
++                        /*
++                         * Special hackery to handle the case where the host does
++                         * *not* use debian multiarch by default but has files located
++                         * under the /usr/lib/aarch64-linux-gnu directory to satisfy
++                         * some compiled-in hard-coded paths in NVIDIA binaries that
++                         * assume debian multiarch.
++                         */
++                        if (strcmp(hostlibdir, dir) != 0 && str_has_prefix(paths[i], dir)) {
++                                samepath = 1;
++                                if (path_new(err, dst, cnt->cfg.rootfs) < 0)
++                                        goto fail;
++                        } else if (str_has_prefix(paths[i], hostlibdir) &&
++                                   strchr(paths[i]+hostlibdirlen, '/') != NULL) {
++                                char tmp[PATH_MAX], sub[PATH_MAX], *cp;
++                                strcpy(sub, paths[i]+hostlibdirlen);
++                                for (cp = sub + strlen(sub); cp > sub && *cp != '/'; cp--);
++                                *cp = '\0';
++                                log_infof("%s: %s subpath: %s", __func__, paths[i], sub);
++                                if (path_join(err, tmp, dir, sub) < 0)
 +                                        goto fail;
 +                                if (path_resolve_full(err, dst, cnt->cfg.rootfs, tmp) < 0)
 +                                        goto fail;
@@ -47,6 +85,7 @@ index dff9c97..eaf3289 100644
 +                                        goto fail;
 +                        }
 +                } else {
++                        samepath = 1;
 +                        if (path_new(err, dst, cnt->cfg.rootfs) < 0)
 +                                goto fail;
 +                }
@@ -55,11 +94,11 @@ index dff9c97..eaf3289 100644
                  if (path_append(err, src, paths[i]) < 0)
                          goto fail;
 -                if (path_append(err, dst, paths[i]) < 0)
-+                if (path_append(err, dst, (dir == NULL ? paths[i] : file)) < 0)
++                if (path_append(err, dst, (samepath ? paths[i] : file)) < 0)
                          goto fail;
  
                  if (file_mode(err, src, &mode) < 0)
-@@ -71,22 +86,31 @@ create_jetson_symlinks(struct error *err, const char *root, const struct nvc_con
+@@ -71,22 +108,31 @@ create_jetson_symlinks(struct error *err, const char *root, const struct nvc_con
          char src[PATH_MAX];
          char src_lnk[PATH_MAX];
          char dst[PATH_MAX];
