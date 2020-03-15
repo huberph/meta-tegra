@@ -85,7 +85,7 @@ BASEVER = "${@d.getVar('PV').split('-')[0]}"
 
 S = "${WORKDIR}/tensorrt"
 
-CONTAINER_CSV_DIRS = "${libdir} /usr/src"
+CONTAINER_CSV_FILES = "${libdir}/*.so* /usr/src/*"
 
 do_configure() {
     :
