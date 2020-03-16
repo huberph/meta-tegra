@@ -1,14 +1,14 @@
-From b4bdf9bbc9018c79f7914f3854ddd6517ac55bf9 Mon Sep 17 00:00:00 2001
+From b1fc6886d4da668ddfffe0aad6aacbbb95e1cc59 Mon Sep 17 00:00:00 2001
 From: Matt Madison <matt@madison.systems>
 Date: Sat, 14 Mar 2020 07:16:38 -0700
 Subject: [PATCH] Fix mapping of library paths for jetson mounts
 
 ---
  Makefile           |  2 +-
- src/jetson_mount.c | 68 ++++++++++++++++++++++++++++++++++++++--------
+ src/jetson_mount.c | 72 +++++++++++++++++++++++++++++++++++++++-------
  src/jetson_mount.h |  2 +-
  src/nvc_mount.c    |  6 ++--
- 4 files changed, 62 insertions(+), 16 deletions(-)
+ 4 files changed, 66 insertions(+), 16 deletions(-)
 
 diff --git a/Makefile b/Makefile
 index d5187b8..afca0e8 100644
@@ -24,10 +24,10 @@ index d5187b8..afca0e8 100644
              -Wall -Wextra -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wnonnull \
              -Wwrite-strings -Wlogical-op -Wformat=2 -Wmissing-format-attribute -Winit-self -Wshadow \
 diff --git a/src/jetson_mount.c b/src/jetson_mount.c
-index dff9c97..2530d14 100644
+index dff9c97..8d3e275 100644
 --- a/src/jetson_mount.c
 +++ b/src/jetson_mount.c
-@@ -18,28 +18,65 @@
+@@ -18,28 +18,69 @@
  #include "utils.h"
  #include "xfuncs.h"
  #include "jetson_mount.h"
@@ -64,8 +64,12 @@ index dff9c97..2530d14 100644
 +                         * under the /usr/lib/aarch64-linux-gnu directory to satisfy
 +                         * some compiled-in hard-coded paths in NVIDIA binaries that
 +                         * assume debian multiarch.
++                         *
++                         * Also don't move to the container's libdir if the path of
++                         * the file we're mounting is *not* under the host libdir.
 +                         */
-+                        if (strcmp(hostlibdir, dir) != 0 && str_has_prefix(paths[i], dir)) {
++                        if (!str_has_prefix(paths[i], hostlibdir) ||
++                            (strcmp(hostlibdir, dir) != 0 && str_has_prefix(paths[i], dir))) {
 +                                samepath = 1;
 +                                if (path_new(err, dst, cnt->cfg.rootfs) < 0)
 +                                        goto fail;
@@ -98,7 +102,7 @@ index dff9c97..2530d14 100644
                          goto fail;
  
                  if (file_mode(err, src, &mode) < 0)
-@@ -71,22 +108,31 @@ create_jetson_symlinks(struct error *err, const char *root, const struct nvc_con
+@@ -71,22 +112,31 @@ create_jetson_symlinks(struct error *err, const char *root, const struct nvc_con
          char src[PATH_MAX];
          char src_lnk[PATH_MAX];
          char dst[PATH_MAX];
