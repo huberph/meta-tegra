@@ -26,7 +26,6 @@ def extract_basever(d):
 BASEVER = "${@extract_basever(d)}"
 
 S = "${WORKDIR}/cudnn"
-CONTAINER_CSV_DIRS = "${libdir}"
 
 do_configure() {
     :
