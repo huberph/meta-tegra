@@ -5,4 +5,10 @@ do_install_append() {
     fi
 }
 
-RRECOMMENDS_${PN}_append = " kernel-module-br-netfilter kernel-module-xt-addrtype kernel-module-xt-conntrack"
+RRECOMMENDS_${PN}_append = " \
+    kernel-module-br-netfilter \
+    kernel-module-nf-conntrack-netlink \
+    kernel-module-overlay \
+    kernel-module-xt-addrtype \
+    kernel-module-xt-conntrack \
+"
